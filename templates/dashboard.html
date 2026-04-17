@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    .chart-section {
+        margin: 2rem 0;
+    }
+
+    .sensor-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        border: 1px solid #e2e8f0;
+        position: relative;
+        overflow: hidden;
+        min-height: 420px;
+    }
+
+    .card:hover {
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+    }
+
+    .card h3 {
+        margin: 0 0 1rem 0;
+        font-size: 1.1rem;
+        color: #2d3748;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .card-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: opacity 0.2s ease;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 220px;
+        margin-bottom: 1rem;
+        transition: opacity 0.2s ease;
+    }
+
+    .card-details-overlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 12px;
+        padding: 1rem;
+        overflow-y: auto;
+        z-index: 20;
+    }
+
+    .card:hover .card-details-overlay {
+        display: block;
+    }
+
+    .card:hover .card-title,
+    .card:hover .chart-container,
+    .card:hover p {
+        opacity: 0;
+    }
+
+    .card.no-hover-hide:hover .card-title,
+    .card.no-hover-hide:hover .chart-container,
+    .card.no-hover-hide:hover p,
+    .card.no-hover-hide:hover h3 {
+        opacity: 1;
+    }
+
+    .detail-advice {
+        font-size: 0.9rem;
+        line-height: 1.5;
+        color: #2d3748;
+    }
+</style>
+
+{% if unpaired_devices %}
+<div class="alert-new-device">
+    <h4>🔌 New Devices Detected</h4>
+    <p>The following devices are sending data but not linked to your account:</p>
+    <div id="unpaired-devices-list">
+        {% for device in unpaired_devices %}
+        <div class="device-pair-card">
+            <strong>Device ID:</strong> {{ device.chip_id }}<br>
+            <strong>Last Reading:</strong> Temp: {{ device.last_temperature }}°C,
+            Humidity: {{ device.last_humidity }}%,
+            Soil: {{ device.last_soil }}%<br>
+            <strong>Last Seen:</strong> {{ device.last_seen }}<br>
+            <button onclick="pairDevice('{{ device.chip_id }}')" class="btn-pair">
+                Pair this device with my account
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Doughnut Charts Section -->
+<div class="chart-section">
+    <div class="sensor-container">
+        <div class="card">
+            <div id="soilTitle" class="card-title"></div>
+            <div class="chart-container">
+                <canvas id="soilDoughnut"></canvas>
+            </div>
+            <div class="card-details-overlay" id="soilOverlay">
+                <div class="detail-advice" id="soilAdviceOverlay">--</div>
+            </div>
+            <p id="soilStatus"></p>
+        </div>
+
+        <div class="card">
+            <div id="tempTitle" class="card-title"></div>
+            <div class="chart-container">
+                <canvas id="tempDoughnut"></canvas>
+            </div>
+            <div class="card-details-overlay" id="tempOverlay">
+                <div class="detail-advice" id="tempAdviceOverlay">--</div>
+            </div>
+            <p id="tempStatus"></p>
+        </div>
+
+        <div class="card">
+            <div id="humidityTitle" class="card-title"></div>
+            <div class="chart-container">
+                <canvas id="humidityDoughnut"></canvas>
+            </div>
+            <div class="card-details-overlay" id="humidityOverlay">
+                <div class="detail-advice" id="humidityAdviceOverlay">--</div>
+            </div>
+            <p id="humidityStatus"></p>
+        </div>
+    </div>
+</div>
+
+<h2 class="section-title">Historical Trends</h2>
+
+<!-- Date Filter for Charts -->
+<div style="display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 2rem; flex-wrap: wrap; background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%); padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e2efe4; border-left: 4px solid var(--green-700);">
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label style="font-size: 0.85rem; font-weight: 700; color: var(--green-800); text-transform: uppercase; letter-spacing: 0.5px;">📅 Base Date</label>
+        <input type="date" id="chartBaseDate" style="padding: 0.6rem 0.9rem; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.95rem; background: white; transition: all 0.2s;" />
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label style="font-size: 0.85rem; font-weight: 700; color: var(--green-800); text-transform: uppercase; letter-spacing: 0.5px;">⏱️ Period</label>
+        <select id="chartPeriodSelect" style="padding: 0.6rem 0.9rem; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.95rem; background: white; transition: all 0.2s; cursor: pointer;">
+            <option value="7days">Last 7 Days</option>
+            <option value="1month">Last 1 Month</option>
+            <option value="2months">Last 2 Months</option>
+            <option value="3months">Last 3 Months</option>
+            <option value="6months">Last 6 Months</option>
+            <option value="1year">Last 1 Year</option>
+        </select>
+    </div>
+
+    <button id="updateChartsBtn" style="background: linear-gradient(135deg, var(--green-700), var(--green-800)); color: white; border: none; padding: 0.6rem 1.5rem; border-radius: 6px; cursor: pointer; font-weight: 700; transition: all 0.3s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.1); align-self: flex-end; margin-bottom: 0;">📊 Apply Filter</button>
+
+    <input type="hidden" id="chartStartDate" value="">
+    <input type="hidden" id="chartEndDate" value="">
+</div>
+
+<div class="chart-section">
+    <div class="sensor-container">
+        <div class="card no-hover-hide">
+            <h3>Soil History</h3>
+            <div class="chart-container">
+                <canvas id="soilBar"></canvas>
+            </div>
+        </div>
+
+        <div class="card no-hover-hide">
+            <h3>Temperature History</h3>
+            <div class="chart-container">
+                <canvas id="tempBar"></canvas>
+            </div>
+        </div>
+
+        <div class="card no-hover-hide">
+            <h3>Humidity History</h3>
+            <div class="chart-container">
+                <canvas id="humidityBar"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+
+{% endblock %}

@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="disease-page">
+    <div class="upload-shell">
+        <h2>Tomato Leaf Disease Detection</h2>
+        <p class="upload-subtitle">
+            Upload a clear leaf photo and get an instant prediction with practical treatment guidance.
+        </p>
+
+        <form id="uploadForm" method="POST" enctype="multipart/form-data" class="upload-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div id="uploadActionGroup" style="display: flex; flex-direction: column; gap: 1.25rem; width: 100%;">
+                <!-- File Selection Section -->
+                <div
+                    style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; background: #f9f9f9; padding: 1rem; border-radius: 8px; border: 1px dashed var(--green-600);">
+                    <label class="file-label" for="leaf_image" style="font-weight: 600; color: #333;"> Leaf
+                        Photo</label>
+                    <input id="leaf_image" type="file" name="leaf_image" accept=".png,.jpg,.jpeg,.webp" required
+                        style="display: none;">
+                    <button type="button" id="customFileBtn"
+                        style="background: var(--green-700); color: white; border: none; padding: 0.6rem 1.1rem; border-radius: 0.5rem; cursor: pointer; font-weight: 600; font-size: 0.95rem;">📁
+                        Choose File</button>
+                    <span id="fileNameDisplay" style="font-size: 0.9rem; color: #666; flex: 1;">No file chosen</span>
+                </div>
+
+                <!-- Live Preview Area -->
+                <div id="imagePreviewContainer"
+                    style="display: none; flex-direction: column; gap: 0.75rem; max-width: 350px; position: relative;">
+                    <div
+                        style="position: relative; overflow: hidden; border-radius: 8px; border: 2px solid var(--green-600); box-shadow: var(--shadow-md);">
+                        <img id="imagePreview" src="#" alt="Selected Leaf Preview"
+                            style="width: 100%; height: auto; display: block;">
+
+                        <!-- Icon overlays (no buttons) -->
+                        <div style="position: absolute; top: 8px; right: 8px; display: flex; gap: 8px; z-index: 10;">
+                            <span id="changeIcon" aria-label="Change file" role="button" tabindex="0"
+                                style="cursor: pointer; font-size: 20px; background: rgba(33, 150, 243, 0.9); color: white; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.2s; backdrop-filter: blur(2px);">
+                                🔄
+                            </span>
+                            <span id="removeIcon" aria-label="Remove file" role="button" tabindex="0"
+                                style="cursor: pointer; font-size: 20px; background: rgba(229, 57, 53, 0.9); color: white; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.2s; backdrop-filter: blur(2px);">
+                                ✕
+                            </span>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.85rem; color: #888; margin: 0;">Click icons to change or remove the selected
+                        image</p>
+                </div>
+
+                <!-- File input (hidden) -->
+                <input type="file" id="fileInput" accept="image/*" style="display: none;">
+
+                <button type="submit" id="submitBtn" disabled
+                    style="opacity: 0.6; cursor: not-allowed; width: fit-content; background: var(--green-700); color: white; border: none; padding: 0.85rem 1.5rem; border-radius: 0.75rem; font-weight: 600; font-size: 1rem;">
+                    Upload and Detect</button>
+            </div>
+        </form>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const fileInput = document.getElementById('leaf_image');
+                const customBtn = document.getElementById('customFileBtn');
+                const changeIcon = document.getElementById('changeIcon');  // Changed from changeBtn
+                const removeIcon = document.getElementById('removeIcon');  // Changed from removeBtn
+                const submitBtn = document.getElementById('submitBtn');
+                const fileNameDisplay = document.getElementById('fileNameDisplay');
+                const previewContainer = document.getElementById('imagePreviewContainer');
+                const previewImg = document.getElementById('imagePreview');
+
+                // Both custom button and change icon trigger file input
+                if (customBtn) {
+                    customBtn.addEventListener('click', () => fileInput.click());
+                }
+                changeIcon.addEventListener('click', () => fileInput.click());
+
+                fileInput.addEventListener('change', function () {
+                    const file = this.files[0];
+                    if (file) {
+                        fileNameDisplay.textContent = file.name;
+                        submitBtn.disabled = false;
+                        submitBtn.style.opacity = '1';
+                        submitBtn.style.cursor = 'pointer';
+
+                        const reader = new FileReader();
+                        reader.onload = function (e) {
+                            previewImg.src = e.target.result;
+                            previewContainer.style.display = 'flex';
+                        }
+                        reader.readAsDataURL(file);
+                    } else {
+                        resetInput();
+                    }
+                });
+
+                // Remove icon click handler
+                removeIcon.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    resetInput();
+                });
+
+                function resetInput() {
+                    fileInput.value = '';
+                    fileNameDisplay.textContent = 'No file chosen';
+                    previewContainer.style.display = 'none';
+                    previewImg.src = '#';
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.6';
+                    submitBtn.style.cursor = 'not-allowed';
+                }
+
+                // Optional: Add hover effects for icons
+                changeIcon.addEventListener('mouseenter', () => {
+                    changeIcon.style.transform = 'scale(1.1)';
+                    changeIcon.style.background = 'rgba(33, 150, 243, 1)';
+                });
+                changeIcon.addEventListener('mouseleave', () => {
+                    changeIcon.style.transform = 'scale(1)';
+                    changeIcon.style.background = 'rgba(33, 150, 243, 0.9)';
+                });
+
+                removeIcon.addEventListener('mouseenter', () => {
+                    removeIcon.style.transform = 'scale(1.1)';
+                    removeIcon.style.background = 'rgba(229, 57, 53, 1)';
+                });
+                removeIcon.addEventListener('mouseleave', () => {
+                    removeIcon.style.transform = 'scale(1)';
+                    removeIcon.style.background = 'rgba(229, 57, 53, 0.9)';
+                });
+
+                // Keyboard accessibility
+                changeIcon.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        changeIcon.click();
+                    }
+                });
+
+                removeIcon.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        removeIcon.click();
+                    }
+                });
+            });
+        </script>
+    </div>
+
+    {% if uploaded_file or disease_name %}
+    <div class="detection-layout">
+        {% if uploaded_file %}
+        <article class="preview-card">
+            <h3>Uploaded Leaf</h3>
+            <img src="{{ url_for('static', filename='uploads/' ~ uploaded_file) }}" alt="Uploaded leaf image"
+                class="leaf-preview">
+        </article>
+        {% endif %}
+
+        {% if disease_name %}
+        <article class="result-card detection-card">
+            <h3>Detection Result</h3>
+
+            <div class="result-grid">
+                <div class="result-pill">
+                    <span class="label">Disease</span>
+                    <strong>{{ disease_name.replace('_', ' ') }}</strong>
+                </div>
+                <div
+                    class="result-pill {% if confidence is not none %}{% if confidence < 0.7 %}low-confidence{% elif confidence < 0.85 %}med-confidence{% else %}high-confidence{% endif %}{% endif %}">
+                    <span class="label">Confidence</span>
+                    <strong>{% if confidence is not none %}{{ (confidence * 100) | round(1) }}%{% else %}N/A{% endif
+                        %}</strong>
+                </div>
+                {% if cure and cure.severity %}
+                <div class="result-pill">
+                    <span class="label">Severity</span>
+                    <strong>{{ cure.severity }}</strong>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="cure-section">
+                {% if confidence is not none and confidence < 0.7 %} <div class="alert warn">
+                    <strong>Note:</strong> Detection confidence is low. Please ensure the photo is clear and well-lit
+                    for better results.
+            </div>
+            {% endif %}
+            <p class="cure-description">{{ cure.description }}</p>
+
+            <section class="cure-block">
+                <h4>Immediate Actions</h4>
+                <ul class="cure-list">
+                    {% for action in cure.immediate_actions %}
+                    <li>{{ action }}</li>
+                    {% endfor %}
+                </ul>
+            </section>
+
+            {% if cure.fungicides %}
+            <section class="cure-block">
+                <h4>Recommended Fungicides</h4>
+                <ul class="chip-list">
+                    {% for f in cure.fungicides %}
+                    <li>{{ f }}</li>
+                    {% endfor %}
+                </ul>
+            </section>
+            {% endif %}
+
+            <section class="cure-block">
+                <h4>Prevention</h4>
+                <ul class="cure-list">
+                    {% for tip in cure.prevention %}
+                    <li>{{ tip }}</li>
+                    {% endfor %}
+                </ul>
+            </section>
+
+            <a class="learn-link" href="{{ cure.learn_more }}" target="_blank" rel="noopener noreferrer">
+                Learn More
+            </a>
+    </div>
+    </article>
+    {% endif %}
+    </div>
+    {% endif %}
+</section>
+
+{% endblock %}

@@ -1,0 +1,442 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Confirmation Modal -->
+<div id="deleteModal"
+    style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; align-items:center; justify-content:center;">
+    <div
+        style="background:#fff; border-radius:10px; padding:2rem 2.5rem; max-width:360px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.2); text-align:center;">
+        <p style="font-size:1.05rem; margin-bottom:1.5rem; color:#333;">Are you sure?</p>
+        <div style="display:flex; gap:1rem; justify-content:center;">
+            <button id="modalCancelBtn"
+                style="padding:.5rem 1.4rem; border:1px solid #cccccc; border-radius:6px; background:#1abd63; cursor:pointer; font-size:.95rem;">No</button>
+            <button id="modalConfirmBtn"
+                style="padding:.5rem 1.4rem; border:none; border-radius:6px; background:#e53935; color:#fff; cursor:pointer; font-size:.95rem;">Yes</button>
+        </div>
+    </div>
+</div>
+
+<!-- External Dependencies for DataTables -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
+<style>
+    .section-title {
+        margin-bottom: 1.5rem;
+        color: #2d3748;
+    }
+    
+    .dt-filter-form {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        flex-wrap: wrap;
+        border-left: 4px solid var(--green-700);
+    }
+    
+    .dt-filter-form .form-group { 
+        margin-bottom: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .dt-filter-form label {
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: #2d3748;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .dt-filter-form input[type="date"] {
+        padding: 0.6rem;
+        border: 1px solid #cbd5e0;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        background: white;
+        transition: all 0.2s;
+    }
+    
+    .dt-filter-form input[type="date"]:focus {
+        outline: none;
+        border-color: var(--green-700);
+        box-shadow: 0 0 0 3px rgba(26, 189, 99, 0.1);
+    }
+    
+    .dt-filter-form button {
+        background: var(--green-700);
+        color: white;
+        border: none;
+        padding: 0.6rem 1.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+    
+    .dt-filter-form button:hover {
+        background: var(--green-800);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(26, 189, 99, 0.3);
+    }
+    
+    .dt-filter-form .clear-link {
+        font-size: 0.9rem;
+        color: var(--green-700);
+        text-decoration: none;
+        align-self: center;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    
+    .dt-filter-form .clear-link:hover {
+        color: var(--green-800);
+        text-decoration: underline;
+    }
+    
+    .quick-filters {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .quick-filters button {
+        background: #e2e8f0;
+        color: #2d3748;
+        border: 1px solid #cbd5e0;
+        padding: 0.4rem 0.9rem;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .quick-filters button:hover {
+        background: var(--green-700);
+        color: white;
+        border-color: var(--green-700);
+    }
+    
+    .history-table-wrapper {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        overflow-x: auto;
+    }
+    
+    .history-table {
+        width: 100% !important;
+    }
+    
+    .history-table thead th {
+        background: linear-gradient(135deg, var(--green-700) 0%, var(--green-800) 100%);
+        color: white;
+        font-weight: 600;
+        padding: 1rem !important;
+        text-align: left;
+        border-radius: 6px 6px 0 0;
+    }
+    
+    .history-table tbody tr {
+        border-bottom: 1px solid #e2e8f0;
+        transition: all 0.2s;
+    }
+    
+    .history-table tbody tr:hover {
+        background-color: #f7fafc;
+        box-shadow: inset 0 0 0 1px rgba(26, 189, 99, 0.1);
+    }
+    
+    .history-table tbody td {
+        padding: 1rem !important;
+        font-size: 0.95rem;
+    }
+    
+    .history-table tbody td img {
+        transition: transform 0.2s;
+    }
+    
+    .history-table tbody tr:hover td img {
+        transform: scale(1.05);
+    }
+    
+    .conf-badge {
+        display: inline-block;
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-align: center;
+        min-width: 60px;
+    }
+    
+    .conf-high {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        color: #1b5e20;
+    }
+    
+    .conf-med {
+        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+        color: #e65100;
+    }
+    
+    .conf-low {
+        background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+        color: #b71c1c;
+    }
+    
+    .dataTables_wrapper {
+        padding: 0 !important;
+    }
+    
+    .dataTables_wrapper .dataTables_filter {
+        text-align: right;
+        margin-bottom: 1rem;
+    }
+    
+    .dataTables_wrapper .dataTables_filter input {
+        border: 1px solid #cbd5e0;
+        border-radius: 6px;
+        padding: 0.5rem 0.8rem;
+        margin-left: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .dataTables_wrapper .dataTables_info {
+        font-size: 0.9rem;
+        color: #718096;
+        padding-top: 1rem;
+    }
+    
+    .dataTables_wrapper .dataTables_paginate .paginate_button {
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+        border: 1px solid #cbd5e0;
+        color: #2d3748;
+        background: white;
+        cursor: pointer;
+        margin: 0 2px;
+        transition: all 0.2s;
+    }
+    
+    .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+        background: var(--green-700);
+        color: white;
+        border-color: var(--green-700);
+    }
+    
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+        background: var(--green-700);
+        color: white;
+        border-color: var(--green-700);
+    }
+    
+    .delete-btn {
+        background: #e53935;
+        color: white;
+        border: none;
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+    
+    .delete-btn:hover {
+        background: #c62828;
+        transform: translateY(-2px);
+        box-shadow: 0 2px 6px rgba(229, 57, 53, 0.3);
+    }
+    
+    .clear-all-btn {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 1rem;
+    }
+</style>
+
+<h2 class="section-title">📊 Disease Detection History</h2>
+
+<form method="GET" action="{{ url_for('disease.disease_history') }}" class="dt-filter-form">
+    <div class="form-group">
+        <label>📅 From Date</label>
+        <input type="date" name="start_date" value="{{ start_date or '' }}" style="padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
+    </div>
+    <div class="form-group">
+        <label>📅 To Date</label>
+        <input type="date" name="end_date" value="{{ end_date or '' }}" style="padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
+    </div>
+    <button type="submit">🔍 Filter Results</button>
+    {% if start_date or end_date %}
+    <a href="{{ url_for('disease.disease_history') }}" class="clear-link">✕ Clear Filters</a>
+    {% endif %}
+    
+    <div class="quick-filters">
+        {% set today = now.date() %}
+        {% set seven_days_ago = (now - timedelta(days=7)).date() %}
+        {% set thirty_days_ago = (now - timedelta(days=30)).date() %}
+        <a href="{{ url_for('disease.disease_history', start_date=seven_days_ago, end_date=today) }}" style="text-decoration: none;">
+            <button type="button">Last 7 Days</button>
+        </a>
+        <a href="{{ url_for('disease.disease_history', start_date=thirty_days_ago, end_date=today) }}" style="text-decoration: none;">
+            <button type="button">Last 30 Days</button>
+        </a>
+        <a href="{{ url_for('disease.disease_history') }}" style="text-decoration: none;">
+            <button type="button">All Records</button>
+        </a>
+    </div>
+</form>
+
+{% if records %}
+<div class="clear-all-btn">
+    <form class="delete-form" action="{{ url_for('disease.delete_all_disease_history') }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="delete-btn" style="background: #ff5252; padding: 0.5rem 1.2rem; font-size: 0.9rem;">🗑️ Clear Entire History</button>
+    </form>
+</div>
+
+<div class="history-table-wrapper">
+    <table id="historyTable" class="history-table display" style="width:100%">
+        <thead>
+            <tr>
+                <th style="width: 5%;">#</th>
+                <th style="width: 15%;">🖼️ Image</th>
+                <th style="width: 20%;">📄 Filename</th>  
+                <th style="width: 20%;">🦠 Disease</th>
+                <th style="width: 15%;">📊 Confidence</th>
+                <th style="width: 25%;">📅 Detected At</th>
+                <th style="width: 20%;">⚙️ Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in records %}
+            <tr>
+                <td style="text-align: center; color: #718096; font-weight: 600;">{{ loop.index }}</td>
+                <td>
+                    <div style="display: flex; align-items: center; justify-content: center;">
+                        <img src="{{ url_for('static', filename='uploads/' ~ r.image_filename) }}"
+                            alt="Leaf scan {{ loop.index }}"
+                            style="width:60px; height:60px; object-fit:cover; border-radius:8px; border: 2px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    </div>
+                </td>
+                <td style="font-size: 0.8rem; word-break: break-all; color: #4a5568;">
+                    {{ r.image_filename }}
+                </td>
+                <td>
+                    <span style="font-weight: 700; color: #2d3748; display: block; margin-bottom: 4px;">
+                        {{ r.disease_name }}
+                    </span>
+                    <span style="font-size: 0.8rem; color: #718096;">
+                        {% if r.disease_name == 'Healthy' %}
+                            ✅ No disease
+                        {% elif r.disease_name == 'Early Blight' %}
+                            ⚠️ Moderate concern
+                        {% elif r.disease_name == 'Late Blight' %}
+                            🚨 High priority
+                        {% elif r.disease_name == 'Septoria Leaf Spot' %}
+                            ⚠️ Monitor closely
+                        {% endif %}
+                    </span>
+                </td>
+                <td>
+                    <span class="conf-badge {% if r.confidence > 0.85 %}conf-high{% elif r.confidence > 0.7 %}conf-med{% else %}conf-low{% endif %}">
+                        📈 {{ (r.confidence * 100) | round(1) }}%
+                    </span>
+                </td>
+                <td style="color: #2d3748; font-size: 0.9rem;">
+                    <div>{{ r.timestamp.strftime('%Y-%m-%d') }}</div>
+                    <div style="color: #718096; font-size: 0.85rem;">{{ r.timestamp.strftime('%H:%M:%S') }}</div>
+                </td>
+                <td>
+                    <form class="delete-form" action="{{ url_for('disease.delete_disease_history', record_id=r.id) }}" method="POST" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="delete-btn">🗑️ Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('#historyTable').DataTable({
+            "order": [[4, "desc"]], // Default sort by date (column 4) descending
+            "pageLength": 10,
+            "pagingType": "full_numbers",
+            "language": {
+                "search": "Quick Search:",
+                "emptyTable": "No records found",
+                "info": "Showing _START_ to _END_ of _TOTAL_ records",
+                "infoEmpty": "No records available",
+                "paginate": {
+                    "first": "« First",
+                    "last": "Last »",
+                    "next": "Next ›",
+                    "previous": "‹ Previous"
+                }
+            },
+            "responsive": true,
+            "columnDefs": [
+                { "orderable": false, "targets": [0, 1, 5] }, // Disable sorting for these columns
+                { "searchable": false, "targets": [0, 1, 5] }
+            ]
+        });
+    });
+</script>
+{% else %}
+<div style="background: #f8f9fa; padding: 2rem; border-radius: 10px; text-align: center; border: 2px dashed #cbd5e0;">
+    <p style="font-size: 1.1rem; color: #2d3748; margin: 0; margin-bottom: 1rem;">📭 No disease scans recorded yet</p>
+    <p style="color: #718096; margin: 0; margin-bottom: 1rem;">Start by scanning a leaf to build your detection history</p>
+    <a href="{{ url_for('disease.disease') }}" style="display: inline-block; background: var(--green-700); color: white; padding: 0.6rem 1.5rem; border-radius: 6px; text-decoration: none; font-weight: 600; transition: all 0.2s;">🦠 Scan a Leaf Now</a>
+</div>
+{% endif %}
+
+<script>
+    (function () {
+        const modal = document.getElementById('deleteModal');
+        let pendingForm = null;
+
+        document.querySelectorAll('.delete-form').forEach(function (form) {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                pendingForm = form;
+                modal.style.display = 'flex';
+            });
+        });
+
+        document.getElementById('modalCancelBtn').addEventListener('click', function () {
+            modal.style.display = 'none';
+            pendingForm = null;
+        });
+
+        document.getElementById('modalConfirmBtn').addEventListener('click', function () {
+            if (pendingForm) {
+                modal.style.display = 'none';
+                pendingForm.submit();
+            }
+        });
+
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                pendingForm = null;
+            }
+        });
+    })();
+</script>
+{% endblock %}

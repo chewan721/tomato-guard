@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <title>TomatoGuard</title>
+</head>
+
+<body>
+
+  {% if current_user.is_authenticated %}
+  <nav class="navbar">
+    <div class="nav-left">
+      <a href="/dashboard" class="logo" id="logoLink">🍅 TomatoGuard</a>
+    </div>
+
+    <div class="nav-right">
+      <a href="{{ url_for('auth.account') }}" class="nav-btn">Account</a>
+      <a href="{{ url_for('auth.logout') }}" class="nav-btn">Logout</a>
+    </div>
+  </nav>
+  {% endif %}
+
+  <div class="main-content">
+
+    <!-- Flash Messages (Toast Popups) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-toast-container" id="flashToastContainer">
+      {% for category, msg in messages %}
+      <div class="flash-toast {{ category }}">
+        <span class="flash-toast-icon">
+          {% if category == 'success' %}✅{% elif category == 'error' %}❌{% elif category == 'warning' %}⚠️{% else %}ℹ️{% endif %}
+        </span>
+        <span class="flash-toast-msg">{{ msg }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <script>
+      (function() {
+        const toasts = document.querySelectorAll('.flash-toast');
+        toasts.forEach(function(toast, i) {
+          // Stagger each toast slightly
+          setTimeout(function() {
+            toast.style.animation = 'flashSlideOut 0.4s ease-out forwards';
+            setTimeout(function() { toast.remove(); }, 400);
+          }, 3000 + (i * 300));
+        });
+      })();
+    </script>
+    {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+  </div>
+
+  <!-- Add JavaScript for logo click functionality -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const logoLink = document.getElementById('logoLink');
+      
+      if (logoLink) {
+        logoLink.addEventListener('click', function(e) {
+          e.preventDefault();
+          const currentPath = window.location.pathname;
+          
+          if (currentPath === '/dashboard') {
+            // If already on dashboard, reload to refresh data
+            window.location.reload();
+          } else {
+            // If on other pages, navigate to dashboard
+            window.location.href = '/dashboard';
+          }
+        });
+      }
+    });
+  </script>
+
+  {% if current_user.is_authenticated %}
+  <nav class="bottom-nav">
+    <a href="/dashboard" class="bottom-nav-item">
+      <span class="icon">📊</span>
+      <span>Status</span>
+    </a>
+    <a href="{{ url_for('cost.cost') }}" class="bottom-nav-item">
+      <span class="icon">💰</span>
+      <span>Cost</span>
+    </a>
+    <a href="{{ url_for('cost.time_calc') }}" class="bottom-nav-item">
+      <span class="icon">⏳</span>
+      <span>Time</span>
+    </a>
+    <a href="{{ url_for('disease.disease') }}" class="bottom-nav-item">
+      <span class="icon">🪴</span>
+      <span>Scan</span>
+    </a>
+    <a href="{{ url_for('disease.disease_history') }}" class="bottom-nav-item">
+      <span class="icon">📜</span>
+      <span>History</span>
+    </a>
+  </nav>
+  {% endif %}
+
+</body>
+
+</html>

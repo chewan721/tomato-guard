@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="form-wrapper">
+    <div class="form-card">
+        <h2>💰 Tomato Cultivation Cost & Profit Calculator</h2>
+
+        <!-- Step 1: Investment Calculation Form -->
+        <div class="step-section">
+            <h3>Step 1: Calculate Your Investment</h3>
+            <form id="investmentForm" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="form-row">
+                    <label>🌱 Seeds/Seedlings Cost (Rs)</label>
+                    <input type="number" name="seeds" id="seeds" required min="0" max="500000" step="0.01"
+                        value="{{ seeds if seeds else '' }}">
+                    <small class="input-hint">Cost of tomato seeds or seedlings (0 if using saved seeds)</small>
+                </div>
+
+                <div class="form-row">
+                    <label>Fertilizer Cost (Rs)</label>
+                    <input type="number" name="fertilizer" id="fertilizer" required min="0" max="500000" step="0.01"
+                        value="{{ fertilizer if fertilizer else '' }}">
+                    <small class="input-hint">Organic/inorganic fertilizers, compost, etc. (0 if using kitchen
+                        compost)</small>
+                </div>
+
+                <div class="form-row">
+                    <label>Water Cost (Rs)</label>
+                    <input type="number" name="water" id="water" required min="0.01" max="500000" step="0.01"
+                        value="{{ water if water else '' }}">
+                    <small class="input-hint">Irrigation, water bills, maintenance (must be greater than 0)</small>
+                </div>
+
+                <div class="form-row">
+                    <label>📊 Expected Yield (kg)</label>
+                    <input type="number" name="yield" id="yield" required min="0.01" max="100000" step="0.01"
+                        value="{{ expected_yield if expected_yield else '' }}">
+                    <small class="input-hint">Expected tomato harvest in kilograms (must be greater than 0)</small>
+                </div>
+
+                <button type="submit" name="calculate_investment" class="btn-primary">
+                    Calculate Investment
+                </button>
+            </form>
+        </div>
+
+        <!-- Investment Summary -->
+        {% if total_cost is defined and total_cost %}
+        <div class="investment-summary" id="investmentSummary">
+            <h3>Investment Summary</h3>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <span class="summary-label">Seeds Cost:</span>
+                    <span class="summary-value">Rs {{ "%.2f"|format(seeds) }}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Fertilizer Cost:</span>
+                    <span class="summary-value">Rs {{ "%.2f"|format(fertilizer) }}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Water Cost:</span>
+                    <span class="summary-value">Rs {{ "%.2f"|format(water) }}</span>
+                </div>
+                <div class="summary-item total">
+                    <span class="summary-label">Total Investment:</span>
+                    <span class="summary-value">Rs {{ "%.2f"|format(total_cost) }}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Expected Yield:</span>
+                    <span class="summary-value">{{ "%.2f"|format(expected_yield) }} kg</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Cost per kg:</span>
+                    <span class="summary-value">
+                        Rs {{ "%.2f"|format(total_cost / expected_yield if expected_yield > 0 else 0) }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Step 2: Market Price & Profit Planning -->
+        {% if show_price_form %}
+        <div class="step-section" id="profitPlanningSection">
+            <h3>Step 2: Plan Your Profit</h3>
+            <form id="profitForm" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="form-row">
+                    <label>Market Price (Rs per kg)</label>
+                    <input type="number" name="market_price" id="marketPrice" required min="0" max="500" step="0.01"
+                        value="{{ market_price if market_price else '' }}">
+                    <small class="input-hint">Current or expected market price per kilogram (max: Rs 500)</small>
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" name="calculate_profit" class="btn-success">
+                        Calculate Profit
+                    </button>
+                    <button type="submit" name="reset" value="true" class="btn-secondary">
+                        Reset All
+                    </button>
+                </div>
+            </form>
+
+            <div class="price-tips" id="priceTips">
+                <h4>Price Planning Tips:</h4>
+                <ul>
+                    <li><strong>Break-even Price:</strong> Rs <span id="breakEvenPrice">{{ "%.2f"|format(total_cost /
+                            expected_yield if expected_yield > 0 else 0) }}</span> per kg</li>
+                    <li><strong>Recommended Price:</strong> Rs <span id="recommendedPrice">{{ "%.2f"|format((total_cost
+                            * 1.3) / expected_yield if expected_yield > 0 else 0) }}</span> per kg <br>
+                        <small>(for 30% profit margin)</small>
+                    </li>
+                    <li>Consider local market rates, tomato quality, and seasonal demand</li>
+                    <li>Higher quality organic tomatoes can fetch premium prices</li>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Profit Results -->
+        {% if show_results %}
+        <div class="results-section" id="resultsSection">
+            <h3>📊 Profit Analysis Report</h3>
+
+            <div class="results-grid">
+                <div class="result-item">
+                    <span class="result-label">Revenue:</span>
+                    <span class="result-value revenue">Rs {{ "%.2f"|format(revenue) }}</span>
+                </div>
+
+                <div class="result-item">
+                    <span class="result-label">Total Investment:</span>
+                    <span class="result-value">Rs {{ "%.2f"|format(total_cost) }}</span>
+                </div>
+
+                <div class="result-item {{ 'loss' if is_loss else 'profit' }}">
+                    <span class="result-label">{{ 'Net Loss' if is_loss else 'Net Profit' }}:</span>
+                    <span class="result-value">{{ '-' if is_loss else '' }}Rs {{ net_amount }}</span>
+                </div>
+
+                <div class="result-item">
+                    <span class="result-label">Profit Margin:</span>
+                    <span class="result-value {% if profit_margin > 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.2f"|format(profit_margin) }}%
+                    </span>
+                </div>
+
+                <div class="result-item">
+                    <span class="result-label">Break-even Price:</span>
+                    <span class="result-value">Rs {{ "%.2f"|format(break_even_price) }} per kg</span>
+                </div>
+
+                <div class="result-item">
+                    <span class="result-label">Current Market Price:</span>
+                    <span class="result-value">Rs {{ "%.2f"|format(market_price) }} per kg</span>
+                </div>
+
+                <div class="result-item">
+                    <span class="result-label">Price Difference:</span>
+                    <span
+                        class="result-value {% if market_price > break_even_price %}positive{% else %}negative{% endif %}">
+                        {{ '+' if market_price > break_even_price else '' }}Rs {{ "%.2f"|format(market_price -
+                        break_even_price) }} per kg
+                    </span>
+                </div>
+            </div>
+
+            {% if is_loss %}
+            <div class="warning-message">
+                <strong>Warning: Operating at a Loss</strong>
+                <ul>
+                    <li>You need to sell at <strong>Rs {{ "%.2f"|format(break_even_price) }} per kg</strong> to break
+                        even</li>
+                    <li>Consider reducing input costs or improving yield</li>
+                    <li>Try to negotiate better prices with buyers</li>
+                    <li>Explore value-added products like organic certification</li>
+                </ul>
+            </div>
+            {% else %}
+            <div class="success-message">
+                <strong>Great! You're making a profit!</strong>
+                <ul>
+                    <li>Your investment shows a <strong>{{ "%.2f"|format(profit_margin) }}% profit margin</strong></li>
+                    {% if profit_margin < 20 %} <li><strong>Tip:</strong> Consider strategies to increase profit margin
+                        to 30%+ for better returns</li>
+                        {% elif profit_margin > 50 %}
+                        <li><strong>Excellent!</strong> Your profit margin is very healthy</li>
+                        {% endif %}
+                        <li>You're making <strong>Rs {{ "%.2f"|format(market_price - break_even_price) }} per
+                                kg</strong> above break-even</li>
+                </ul>
+            </div>
+            {% endif %}
+            <div class="action-buttons-grid">
+                <form method="POST" class="action-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="reset" value="true">
+                    <button type="submit" class="btn-primary">New Calculation</button>
+                </form>
+
+                <button type="button" onclick="window.print()" class="btn-secondary">
+                    Print Report
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

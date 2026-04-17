@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="main-content">
+    <div class="form-wrapper">
+        <div class="form-card">
+
+            <h2>Login</h2>
+
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="form-row">
+                    <label>Username</label>
+                    <input type="text" name="username" required autocomplete="username">
+                </div>
+
+                <div class="form-row">
+                    <label>Password</label>
+                    <input type="password" name="password" required autocomplete="current-password">
+                </div>
+
+                <input type="submit" value="Login">
+            </form>
+
+            <a href="{{ url_for('auth.register') }}">Don't have an account? Register</a>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

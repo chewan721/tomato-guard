@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="main-content">
+    <div class="form-wrapper">
+        <div class="form-card">
+
+            <h2>Account Settings</h2>
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="account_save">
+
+                <div class="form-row">
+                    <label>Username:</label>
+                    <input type="text" name="username" placeholder="{{ current_user.username }}" minlength="3"
+                        maxlength="50" pattern="[a-zA-Z0-9_]*"
+                        title="Letters, numbers and underscores only (3-50 characters)" autocomplete="username">
+                </div>
+
+                <div class="form-row">
+                    <label>Email</label>
+                    <input type="email" name="email" placeholder="{{ current_user.email }}" autocomplete="email">
+                </div>
+
+                <div class="form-row">
+                    <label>Current Password</label>
+                    <input type="password" name="old_password" placeholder=" " autocomplete="current-password">
+                </div>
+
+                <div class="form-row">
+                    <label>New Password</label>
+                    <input type="password" name="password" placeholder=" " minlength="8" autocomplete="new-password">
+                </div>
+
+                <input type="submit" value="Update Account">
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

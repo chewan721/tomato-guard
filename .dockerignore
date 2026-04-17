@@ -1,0 +1,46 @@
+# Version control
+.git
+.gitignore
+.github
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Database files (SQLite will be recreated)
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded images (not needed in image)
+static/uploads/*
+
+# Environment files (use Docker secrets or env variables at runtime)
+.env
+.env.*
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store
+
+# TensorFlow model (you may want to include it, so comment if needed)
+# *.h5
+# *.keras
+
+# Logs
+*.log
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml

@@ -1,0 +1,37 @@
+# Create .gitignore to exclude large files
+@"
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+
+# Database (will be recreated)
+*.db
+*.sqlite
+
+# Environment variables
+.env
+.secret_key
+
+# Large model files (store on HF Hub instead)
+*.keras
+*.h5
+
+# Uploaded files
+static/uploads/*
+!static/uploads/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+"@ | Out-File -FilePath .gitignore -Encoding utf8
+
+# Add and commit .gitignore
+git add .gitignore
+git commit -m "Add .gitignore"
+git push origin main
+git push space main

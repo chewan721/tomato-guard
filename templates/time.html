@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="form-wrapper">
+    <div class="form-card">
+        <h2>Time Calculation</h2>
+
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-row">
+                <label>Planting Date</label>
+                <input type="date" name="planting_date" required>
+            </div>
+
+            <button type="submit">Calculate Time</button>
+        </form>
+
+        {% if crop_age_text is defined %}
+        <div class="result-card">
+            <h3>Time Summary</h3>
+
+            <div class="result-row">
+                <span>Planting Date</span>
+                <strong>{{ planting_date_display }}</strong>
+            </div>
+
+            <div class="result-row">
+                <span>Today's Date</span>
+                <strong>{{ today_display }}</strong>
+            </div>
+
+            <div class="result-row">
+                <span>Expected Harvest Window</span>
+                <strong>{{ harvest_window_display }}</strong>
+            </div>
+
+            <div class="harvest-status">
+                {{ harvest_status }}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+{% endblock %}
