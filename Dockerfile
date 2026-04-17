@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 # Copy and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir tensorflow==2.16.1 numpy Pillow opencv-python
+    pip install --no-cache-dir tensorflow==2.16.1 numpy Pillow opencv-python python-dotenv
 
 # Copy application
 COPY . .
