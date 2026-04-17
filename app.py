@@ -12,17 +12,18 @@ from model import User
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Create database tables if they don't exist
-with app.app_context():
-    db.create_all()
-    print("Database tables created/verified")
-
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
 db.init_app(app)
 login_manager.init_app(app)
 csrf.init_app(app)
 limiter.init_app(app)
+
+# --- ADD THIS SECTION ---
+with app.app_context():
+    db.create_all()
+    print("Database tables created/verified")
+# ------------------------
 
 login_manager.login_view = "auth.login"
 login_manager.login_message = "Please log in to access this page."
