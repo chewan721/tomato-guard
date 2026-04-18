@@ -151,20 +151,35 @@ function pairNewDevice() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Create a simple popup with selectable token
-            const tokenMessage = 
-                "🔌 PAIRING MODE ACTIVATED\n\n" +
-                "1. Press reset button on ESP32\n" +
-                "2. Connect to WiFi: TomatoGuard-Setup\n" +
-                "3. Enter your WiFi password\n" +
-                "4. Enter this pairing token:\n\n" +
-                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                data.token + "\n" +
-                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-                "⏱️ Token expires in " + data.expires_in + " seconds\n\n" +
-                "💡 TIP: Press Ctrl+C to copy this message";
+            // Create a modal dialog with copyable token
+            const modalHtml = `
+                <div id="pairingModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10000;">
+                    <div style="background: white; border-radius: 16px; padding: 24px; max-width: 480px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                        <h3 style="margin-top: 0; color: #2e7d32;">🔌 Pair New ESP32 Device</h3>
+                        <hr style="margin: 10px 0;">
+                        <ol style="margin: 15px 0; padding-left: 20px; line-height: 1.6;">
+                            <li>Press the reset button on your ESP32</li>
+                            <li>Connect to WiFi: <strong>"TomatoGuard-Setup"</strong></li>
+                            <li>Enter your home WiFi credentials</li>
+                            <li>When asked for pairing token, copy and paste the token below:</li>
+                        </ol>
+                        <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin: 15px 0; border: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                            <code id="pairingToken" style="font-size: 13px; word-break: break-all; flex: 1; font-family: monospace;">${data.token}</code>
+                            <button onclick="copyPairingToken()" style="background: #2e7d32; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold;">📋 Copy</button>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                            <span style="font-size: 12px; color: #666;">⏱️ Expires in ${data.expires_in} seconds</span>
+                            <button onclick="closePairingModal()" style="background: #999; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">Close</button>
+                        </div>
+                    </div>
+                </div>
+            `;
             
-            alert(tokenMessage);
+            // Add modal to page
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Store token for copy function
+            window.currentPairingToken = data.token;
         } else {
             alert('Failed to create pairing token. Please try again.');
         }
@@ -173,6 +188,29 @@ function pairNewDevice() {
         console.error('Error:', error);
         alert('Failed to create pairing token. Please try again.');
     });
+}
+
+function copyPairingToken() {
+    if (window.currentPairingToken) {
+        navigator.clipboard.writeText(window.currentPairingToken).then(() => {
+            // Show temporary success feedback
+            const copyBtn = document.querySelector('#pairingModal button');
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '✅ Copied!';
+            copyBtn.style.background = '#4caf50';
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.style.background = '#2e7d32';
+            }, 1500);
+        }).catch(() => {
+            alert('Failed to copy. Please select and copy manually.');
+        });
+    }
+}
+
+function closePairingModal() {
+    const modal = document.getElementById('pairingModal');
+    if (modal) modal.remove();
 }
 
 function pairDevice(chipId) {
@@ -188,7 +226,7 @@ function pairDevice(chipId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Device paired successfully!');
+            alert('✅ Device paired successfully!');
             location.reload();
         } else {
             alert('Failed to pair device: ' + (data.error || 'Unknown error'));
@@ -199,6 +237,7 @@ function pairDevice(chipId) {
         alert('Failed to pair device. Please try again.');
     });
 }
+
 </script>
 
 <!-- Doughnut Charts Section -->
