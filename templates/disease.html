@@ -58,6 +58,19 @@
             </div>
         </form>
 
+<div id="loadingMessage" style="display:none; background:#e3f2fd; padding:15px; border-radius:8px; margin:15px 0; text-align:center;">
+    <strong>⏳ Processing your image...</strong><br>
+    This may take 15-30 seconds on mobile. Please wait.
+</div>
+
+<script>
+document.getElementById('uploadForm').addEventListener('submit', function() {
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('submitBtn').innerHTML = '⏳ Processing...';
+    document.getElementById('loadingMessage').style.display = 'block';
+});
+</script>
+
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 const fileInput = document.getElementById('leaf_image');
