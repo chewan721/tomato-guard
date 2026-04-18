@@ -96,7 +96,7 @@ def create_pairing_token():
         "expires_in": 600
     })
 
-
+@csrf.exempt  
 @sensor_bp.route("/api/register-device", methods=["POST"])
 def register_device():
     """Register a new ESP32 device using a pairing token"""
