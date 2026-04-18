@@ -7,7 +7,7 @@ from model import SensorData, SensorProfile, UserSensorData, NotificationLog, db
 from model import _nepal_now
 import secrets
 import time
-
+from datetime import datetime, timedelta
 sensor_bp = Blueprint("sensor", __name__)
 
 
@@ -509,6 +509,7 @@ def should_send_notification(user_id, soil_moisture, action):
     
     time_since_last = _nepal_now() - last_notification.created_at
     return time_since_last > timedelta(hours=1)
+
 
 
 @sensor_bp.route("/api/notification-log", methods=["POST"])
