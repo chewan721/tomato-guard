@@ -14,10 +14,12 @@ class Config:
             with open(key_file, 'wb') as f:
                 f.write(SECRET_KEY)
 
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL",
-        f"sqlite:///{os.path.join(basedir, 'tomatoguard.db')}"
-    )
+    # Use PostgreSQL on Hugging Face, SQLite locally
+    if os.environ.get("DATABASE_URL"):
+        SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
+    else:
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{os.path.join(basedir, 'tomatoguard.db')}"
+    
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     WTF_CSRF_ENABLED = True
