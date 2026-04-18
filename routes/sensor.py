@@ -85,9 +85,8 @@ def create_pairing_token():
     """Create a temporary pairing token for a new device"""
     pairing_token = secrets.token_urlsafe(32)
     
-    # Store in session (for demo) - in production use a database table
     session['pairing_token'] = pairing_token
-    session['pairing_expiry'] = time.time() + 600  # 10 minutes
+    session['pairing_expiry'] = time.time() + 600
     session['pairing_user_id'] = current_user.id
     
     return jsonify({
@@ -95,6 +94,7 @@ def create_pairing_token():
         "token": pairing_token,
         "expires_in": 600
     })
+
 
 @csrf.exempt  
 @sensor_bp.route("/api/register-device", methods=["POST"])
@@ -108,8 +108,6 @@ def register_device():
     if not pairing_token or not chip_id:
         return jsonify({"error": "Missing pairing_token or chip_id"}), 400
     
-    # Verify pairing token (check session - for demo)
-    # In production, check against a database table
     stored_token = session.get('pairing_token')
     stored_expiry = session.get('pairing_expiry', 0)
     user_id = session.get('pairing_user_id')
@@ -120,13 +118,11 @@ def register_device():
     if not user_id:
         return jsonify({"error": "No user associated with pairing token"}), 401
     
-    # Check if device already exists
     existing = SensorProfile.query.filter_by(chip_id=chip_id).first()
     if existing:
         return jsonify({"error": "Device already registered", "device_token": existing.device_token}), 409
     
     try:
-        # Create new sensor profile for the user
         profile = SensorProfile(
             chip_id=chip_id,
             device_token=generate_device_token(),
@@ -136,7 +132,6 @@ def register_device():
         db.session.add(profile)
         db.session.commit()
         
-        # Clear the used pairing token
         session.pop('pairing_token', None)
         session.pop('pairing_expiry', None)
         session.pop('pairing_user_id', None)
@@ -158,36 +153,29 @@ def register_device():
 
 # ========== SENSOR DATA ENDPOINTS ==========
 
-# POST /api/sensor — receives data from ESP32
+# POST /api/sensor — receives data from ESP32 (TOKEN-LESS using chip_id)
 @csrf.exempt
 @sensor_bp.route("/api/sensor", methods=["POST"])
 @limiter.limit("1000 per hour")
 def receive_sensor_data():
     payload = _extract_payload()
-    api_key = _extract_api_key(payload)
     chip_id = _extract_chip_id(payload)
     
-    # Check if this is the global API key (new device, not yet paired)
-    global_api_key = current_app.config.get("SENSOR_API_KEY")
-    is_global_key = (api_key == global_api_key)
-    
-    # Try to find existing profile by device token
-    profile = SensorProfile.query.filter_by(device_token=api_key).first()
-    
-    # If still no profile and not using global key, reject
-    if profile is None and not is_global_key:
-        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    if not chip_id:
+        return jsonify({"status": "error", "message": "No chip_id provided"}), 400
     
     if not payload:
-        return jsonify({"status": "error", "message": "No JSON body received."}), 400
+        return jsonify({"status": "error", "message": "No JSON body received"}), 400
     
     ok, result = validate_sensor_data(payload)
     if not ok:
         return jsonify({"status": "error", "message": result}), 422
     
-    # Save the reading
-    if profile is not None:
-        # User-scoped data
+    # Find if this chip is linked to a user
+    profile = SensorProfile.query.filter_by(chip_id=chip_id).first()
+    
+    if profile:
+        # Linked to user - save to user_sensor_data
         device_name = str(payload.get("device_name") or profile.device_name or "ESP32").strip()[:100]
         reading = UserSensorData(
             user_id=profile.user_id,
@@ -199,22 +187,20 @@ def receive_sensor_data():
         db.session.add(reading)
         db.session.commit()
         
-        response = {
+        return jsonify({
             "status": "success", 
             "saved": result,
             "user_id": profile.user_id,
             "device_name": device_name,
             "chip_id": profile.chip_id
-        }
-        return jsonify(response), 200
-        
-    elif is_global_key and chip_id:
-        # Legacy mode - store in global SensorData table
+        }), 200
+    else:
+        # Not linked - save to unpaired sensor_data
         new_reading = SensorData(
             temperature=result["temperature"],
             humidity=result["humidity"],
             soil_moisture=result["soil"],
-            chip_id=chip_id  
+            chip_id=chip_id
         )
         db.session.add(new_reading)
         db.session.commit()
@@ -222,11 +208,10 @@ def receive_sensor_data():
         return jsonify({
             "status": "success", 
             "saved": result,
-            "mode": "legacy_global_key",
-            "message": "Data saved. To view in dashboard, pair this device with your account."
+            "mode": "unpaired",
+            "message": "Data saved. Pair this device from dashboard.",
+            "chip_id": chip_id
         }), 200
-    else:
-        return jsonify({"status": "error", "message": "No valid profile found"}), 400
 
 
 @csrf.exempt
@@ -234,16 +219,12 @@ def receive_sensor_data():
 @limiter.limit("1200 per hour")
 def sensor_ping():
     payload = _extract_payload()
-    api_key = _extract_api_key(payload)
     chip_id = _extract_chip_id(payload)
-    profile = SensorProfile.query.filter_by(device_token=api_key).first()
-    is_legacy_global_key = api_key == current_app.config.get("SENSOR_API_KEY")
-
-    if profile is None and is_legacy_global_key and chip_id:
-        profile = SensorProfile.query.filter_by(chip_id=chip_id).first()
-
-    if profile is None and not is_legacy_global_key:
-        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    if not chip_id:
+        return jsonify({"status": "error", "message": "No chip_id"}), 400
+    
+    profile = SensorProfile.query.filter_by(chip_id=chip_id).first()
 
     if profile is not None:
         latest = (
@@ -252,7 +233,7 @@ def sensor_ping():
             .first()
         )
     else:
-        latest = SensorData.query.order_by(SensorData.timestamp.desc()).first()
+        latest = SensorData.query.filter_by(chip_id=chip_id).order_by(SensorData.timestamp.desc()).first()
 
     latest_payload = None
     if latest:
@@ -265,13 +246,11 @@ def sensor_ping():
         if profile is not None:
             latest_payload["device_name"] = latest.device_name
 
-    return jsonify(
-        {
-            "status": "ok",
-            "scope": "user" if profile is not None else "legacy_global",
-            "latest": latest_payload,
-        }
-    ), 200
+    return jsonify({
+        "status": "ok",
+        "paired": profile is not None,
+        "latest": latest_payload,
+    }), 200
 
 
 # GET /api/latest — latest reading for dashboard live cards
@@ -284,14 +263,12 @@ def latest_sensor():
         .first()
     )
     if latest:
-        return jsonify(
-            {
-                "temperature": latest.temperature,
-                "humidity": latest.humidity,
-                "soil": latest.soil_moisture,
-                "timestamp": latest.timestamp.isoformat(),
-            }
-        )
+        return jsonify({
+            "temperature": latest.temperature,
+            "humidity": latest.humidity,
+            "soil": latest.soil_moisture,
+            "timestamp": latest.timestamp.isoformat(),
+        })
     return jsonify({"temperature": 0, "humidity": 0, "soil": 0, "timestamp": None})
 
 
@@ -346,7 +323,7 @@ def sensor_history():
 @sensor_bp.route("/api/unpaired-devices")
 @login_required
 def unpaired_devices():
-    """List devices that have sent data via global key but aren't paired"""
+    """List devices that have sent data but aren't paired"""
     unpaired_chips = db.session.query(SensorData.chip_id)\
         .filter(SensorData.chip_id.isnot(None))\
         .distinct()\
@@ -381,6 +358,11 @@ def pair_device():
     if not chip_id:
         return jsonify({"error": "No chip_id provided"}), 400
     
+    # Check if already paired
+    existing = SensorProfile.query.filter_by(chip_id=chip_id).first()
+    if existing:
+        return jsonify({"error": "Device already paired"}), 409
+    
     try:
         profile = SensorProfile(
             chip_id=chip_id,
@@ -394,6 +376,7 @@ def pair_device():
         db.session.rollback()
         return jsonify({"error": "Device already paired or invalid"}), 409
     
+    # Migrate existing readings
     legacy_readings = SensorData.query.filter_by(chip_id=chip_id).all()
     migrated_count = 0
     
