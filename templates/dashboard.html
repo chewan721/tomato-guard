@@ -151,7 +151,20 @@ function pairNewDevice() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert(`Pairing Mode Activated!\n\n1. Press the reset button on your ESP32\n2. Connect to WiFi "TomatoGuard-Setup"\n3. Enter your WiFi password when prompted\n4. Enter this pairing token when asked:\n\n${data.token}\n\nValid for 10 minutes`);
+            // Create a simple popup with selectable token
+            const tokenMessage = 
+                "🔌 PAIRING MODE ACTIVATED\n\n" +
+                "1. Press reset button on ESP32\n" +
+                "2. Connect to WiFi: TomatoGuard-Setup\n" +
+                "3. Enter your WiFi password\n" +
+                "4. Enter this pairing token:\n\n" +
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                data.token + "\n" +
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                "⏱️ Token expires in " + data.expires_in + " seconds\n\n" +
+                "💡 TIP: Press Ctrl+C to copy this message";
+            
+            alert(tokenMessage);
         } else {
             alert('Failed to create pairing token. Please try again.');
         }
