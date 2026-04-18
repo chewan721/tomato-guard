@@ -260,3 +260,13 @@ def predict_disease(image_path):
     except Exception as exc:
         logger.error(f"Disease prediction failed: {exc}", exc_info=True)
         return "Prediction error", DISEASE_CURES["Prediction error"], 0.0
+
+
+# To check when model loads
+print("=" * 60)
+print(f"ML_MODEL STATUS: Model loaded = {model is not None}")
+if model is not None:
+    print("✅ Model loaded successfully at startup!")
+else:
+    print("❌ Model failed to load at startup!")
+print("=" * 60)
