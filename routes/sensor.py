@@ -1,10 +1,12 @@
 from dotenv.main import logger
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, session
 from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
 from extensions import csrf, limiter
-from model import SensorData, SensorProfile, UserSensorData, NotificationLog, db
+from model import SensorData, SensorProfile, UserSensorData, NotificationLog, db, generate_device_token
 from model import _nepal_now
+import secrets
+import time
 
 sensor_bp = Blueprint("sensor", __name__)
 
@@ -74,8 +76,89 @@ def _extract_api_key(payload: dict):
         or request.args.get("api_key")
     )
 
-# POST /api/sensor  — receives data from ESP32
-# CSRF exempt because it is an API endpoint authenticated by API key.
+
+# ========== DEVICE PAIRING ENDPOINTS ==========
+
+@sensor_bp.route("/api/create-pairing-token", methods=["POST"])
+@login_required
+def create_pairing_token():
+    """Create a temporary pairing token for a new device"""
+    pairing_token = secrets.token_urlsafe(32)
+    
+    # Store in session (for demo) - in production use a database table
+    session['pairing_token'] = pairing_token
+    session['pairing_expiry'] = time.time() + 600  # 10 minutes
+    session['pairing_user_id'] = current_user.id
+    
+    return jsonify({
+        "success": True,
+        "token": pairing_token,
+        "expires_in": 600
+    })
+
+
+@sensor_bp.route("/api/register-device", methods=["POST"])
+def register_device():
+    """Register a new ESP32 device using a pairing token"""
+    data = request.get_json()
+    pairing_token = data.get('pairing_token')
+    chip_id = data.get('chip_id')
+    device_name = data.get('device_name', 'ESP32')
+    
+    if not pairing_token or not chip_id:
+        return jsonify({"error": "Missing pairing_token or chip_id"}), 400
+    
+    # Verify pairing token (check session - for demo)
+    # In production, check against a database table
+    stored_token = session.get('pairing_token')
+    stored_expiry = session.get('pairing_expiry', 0)
+    user_id = session.get('pairing_user_id')
+    
+    if not stored_token or stored_token != pairing_token or time.time() > stored_expiry:
+        return jsonify({"error": "Invalid or expired pairing token"}), 401
+    
+    if not user_id:
+        return jsonify({"error": "No user associated with pairing token"}), 401
+    
+    # Check if device already exists
+    existing = SensorProfile.query.filter_by(chip_id=chip_id).first()
+    if existing:
+        return jsonify({"error": "Device already registered", "device_token": existing.device_token}), 409
+    
+    try:
+        # Create new sensor profile for the user
+        profile = SensorProfile(
+            chip_id=chip_id,
+            device_token=generate_device_token(),
+            user_id=user_id,
+            device_name=device_name
+        )
+        db.session.add(profile)
+        db.session.commit()
+        
+        # Clear the used pairing token
+        session.pop('pairing_token', None)
+        session.pop('pairing_expiry', None)
+        session.pop('pairing_user_id', None)
+        
+        return jsonify({
+            "success": True,
+            "device_token": profile.device_token,
+            "chip_id": chip_id,
+            "device_name": profile.device_name
+        }), 200
+        
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Device already paired or invalid"}), 409
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+# ========== SENSOR DATA ENDPOINTS ==========
+
+# POST /api/sensor — receives data from ESP32
 @csrf.exempt
 @sensor_bp.route("/api/sensor", methods=["POST"])
 @limiter.limit("1000 per hour")
@@ -88,7 +171,7 @@ def receive_sensor_data():
     global_api_key = current_app.config.get("SENSOR_API_KEY")
     is_global_key = (api_key == global_api_key)
     
-    # Try to find existing profile
+    # Try to find existing profile by device token
     profile = SensorProfile.query.filter_by(device_token=api_key).first()
     
     # If still no profile and not using global key, reject
@@ -132,7 +215,6 @@ def receive_sensor_data():
             humidity=result["humidity"],
             soil_moisture=result["soil"],
             chip_id=chip_id  
-
         )
         db.session.add(new_reading)
         db.session.commit()
@@ -191,7 +273,8 @@ def sensor_ping():
         }
     ), 200
 
-# GET /api/latest  — latest reading for dashboard live cards
+
+# GET /api/latest — latest reading for dashboard live cards
 @sensor_bp.route("/api/latest")
 @login_required
 def latest_sensor():
@@ -211,7 +294,8 @@ def latest_sensor():
         )
     return jsonify({"temperature": 0, "humidity": 0, "soil": 0, "timestamp": None})
 
-# GET /api/history  — daily aggregated data for dashboard
+
+# GET /api/history — daily aggregated data for dashboard
 @sensor_bp.route("/api/history")
 @login_required
 def sensor_history():
@@ -221,15 +305,11 @@ def sensor_history():
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     
-    # Default to last 7 days (including today)
     if not start_date_str:
         start_date_str = (datetime.now() - timedelta(days=6)).strftime('%Y-%m-%d')
     if not end_date_str:
         end_date_str = datetime.now().strftime('%Y-%m-%d')
 
-    logger.info(f" [API /history] User {current_user.id} requesting data from {start_date_str} to {end_date_str}")
-
-    # Query daily aggregates (SQLite friendly grouping via func.date)
     stats = db.session.query(
         func.date(UserSensorData.timestamp).label('day'),
         func.max(UserSensorData.temperature).label('max_temp'),
@@ -244,8 +324,6 @@ def sensor_history():
         func.date(UserSensorData.timestamp) <= end_date_str
     ).group_by(func.date(UserSensorData.timestamp)).order_by('day').all()
 
-    logger.info(f" [API /history] User {current_user.id} requesting data from {start_date_str} to {end_date_str}")
-
     results = {
         "days": [],
         "temperature": {"max": [], "min": []},
@@ -254,7 +332,6 @@ def sensor_history():
     }
 
     for s in stats:
-        # s.day should be a string "YYYY-MM-DD" from SQLite's func.date()
         results["days"].append(str(s.day))
         results["temperature"]["max"].append(round(s.max_temp, 1) if s.max_temp is not None else 0)
         results["temperature"]["min"].append(round(s.min_temp, 1) if s.min_temp is not None else 0)
@@ -263,36 +340,27 @@ def sensor_history():
         results["soil"]["max"].append(round(s.max_soil, 1) if s.max_soil is not None else 0)
         results["soil"]["min"].append(round(s.min_soil, 1) if s.min_soil is not None else 0)
 
-    logger.info(f" [API /history] User {current_user.id} returning data for {len(results['days'])} days with labels: {results['days']}")
-
     return jsonify(results)
+
 
 @sensor_bp.route("/api/unpaired-devices")
 @login_required
 def unpaired_devices():
     """List devices that have sent data via global key but aren't paired"""
-    
-    # Find all unique chip_ids from SensorData that are NOT in SensorProfile
     unpaired_chips = db.session.query(SensorData.chip_id)\
         .filter(SensorData.chip_id.isnot(None))\
         .distinct()\
         .all()
     
     unpaired_chips = [c[0] for c in unpaired_chips]
-    
-    # Get already paired chips
     paired_chips = [p.chip_id for p in SensorProfile.query.filter(SensorProfile.chip_id.isnot(None)).all()]
-    
-    # Filter to only unpaired
     unpaired = [chip for chip in unpaired_chips if chip not in paired_chips]
     
-    # Get latest reading for each unpaired chip
     devices = []
     for chip in unpaired:
         latest = SensorData.query.filter_by(chip_id=chip)\
             .order_by(SensorData.timestamp.desc())\
             .first()
-        
         if latest:
             devices.append({
                 "chip_id": chip,
@@ -301,13 +369,12 @@ def unpaired_devices():
                 "last_humidity": latest.humidity,
                 "last_soil": latest.soil_moisture
             })
-    
     return jsonify({"devices": devices}), 200
+
 
 @sensor_bp.route("/api/pair-device", methods=["POST"])
 @login_required
 def pair_device():
-    # CSRF token will be automatically validated
     data = request.get_json()
     chip_id = data.get('chip_id')
     
@@ -317,7 +384,7 @@ def pair_device():
     try:
         profile = SensorProfile(
             chip_id=chip_id,
-            device_token=current_app.config.get("SENSOR_API_KEY"),
+            device_token=generate_device_token(),
             user_id=current_user.id,
             device_name=data.get('device_name', f'ESP32-{chip_id[-6:]}')
         )
@@ -327,7 +394,6 @@ def pair_device():
         db.session.rollback()
         return jsonify({"error": "Device already paired or invalid"}), 409
     
-    # Migrate existing readings from SensorData to UserSensorData
     legacy_readings = SensorData.query.filter_by(chip_id=chip_id).all()
     migrated_count = 0
     
@@ -343,10 +409,6 @@ def pair_device():
         db.session.add(new_reading)
         migrated_count += 1
     
-    # Optional: Delete legacy readings after migration
-    # for reading in legacy_readings:
-    #     db.session.delete(reading)
-    
     db.session.commit()
     
     return jsonify({
@@ -356,16 +418,12 @@ def pair_device():
         "device_name": profile.device_name
     }), 200
 
-# receive watering suggestion
-from datetime import datetime, timedelta
-from model import NotificationLog
+
+# ========== WATERING RECOMMENDATIONS ==========
 
 @sensor_bp.route("/api/watering-recommendation")
 @login_required
 def watering_recommendation():
-    """Get watering recommendation based on latest soil moisture"""
-    
-    # Get latest reading for current user
     latest = UserSensorData.query.filter_by(user_id=current_user.id)\
         .order_by(UserSensorData.timestamp.desc())\
         .first()
@@ -378,8 +436,6 @@ def watering_recommendation():
     
     soil_moisture = latest.soil_moisture
     recommendation = get_watering_advice(soil_moisture)
-    
-    # Check if we should send notification
     should_notify = should_send_notification(current_user.id, soil_moisture, recommendation["action"])
     
     return jsonify({
@@ -392,9 +448,8 @@ def watering_recommendation():
         "timestamp": latest.timestamp.isoformat()
     }), 200
 
+
 def get_watering_advice(soil_moisture):
-    """Return watering advice based on soil moisture level"""
-    
     if soil_moisture < 30:
         return {
             "action": "water_urgent",
@@ -456,37 +511,28 @@ def get_watering_advice(soil_moisture):
             "color": "#f44336"
         }
 
+
 def should_send_notification(user_id, soil_moisture, action):
-    """Check if we should send a notification (rate limiting)"""
-    
-    # Don't send notifications for normal conditions
     if action in ["normal", "borderline"]:
         return False
     
-    # Check last notification for this user
     last_notification = NotificationLog.query.filter_by(
         user_id=user_id,
         action_type=action
     ).order_by(NotificationLog.created_at.desc()).first()
     
-    # If no previous notification, send one
     if not last_notification:
         return True
     
-    # Don't send another notification within 1 hour
     time_since_last = _nepal_now() - last_notification.created_at
     return time_since_last > timedelta(hours=1)
+
 
 @sensor_bp.route("/api/notification-log", methods=["POST"])
 @login_required
 def log_notification():
-    """Log that a notification was sent"""
-
-       # DEBUG: Print raw request data
-    logger.debug(f"Notification log request: {request.data}")
     try:
         data = request.get_json()
-        
         if not data:
             return jsonify({"error": "No data provided"}), 400
         

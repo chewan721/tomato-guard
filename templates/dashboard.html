@@ -90,6 +90,28 @@
         line-height: 1.5;
         color: #2d3748;
     }
+
+    .action-section {
+        margin: 1rem 0;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .action-btn {
+        background: var(--green-700);
+        color: white;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .action-btn:hover {
+        background: var(--green-800);
+        transform: translateY(-2px);
+    }
 </style>
 
 {% if unpaired_devices %}
@@ -112,6 +134,59 @@
     </div>
 </div>
 {% endif %}
+
+<div class="action-section">
+    <button onclick="pairNewDevice()" class="action-btn">🔌 Pair New ESP32 Device</button>
+</div>
+
+<script>
+function pairNewDevice() {
+    fetch('/api/create-pairing-token', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Pairing Mode Activated!\n\n1. Press the reset button on your ESP32\n2. Connect to WiFi "TomatoGuard-Setup"\n3. Enter your WiFi password when prompted\n4. Enter this pairing token when asked:\n\n${data.token}\n\nValid for 10 minutes`);
+        } else {
+            alert('Failed to create pairing token. Please try again.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to create pairing token. Please try again.');
+    });
+}
+
+function pairDevice(chipId) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    fetch('/api/pair-device', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ chip_id: chipId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Device paired successfully!');
+            location.reload();
+        } else {
+            alert('Failed to pair device: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to pair device. Please try again.');
+    });
+}
+</script>
 
 <!-- Doughnut Charts Section -->
 <div class="chart-section">
