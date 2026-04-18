@@ -1,8 +1,4 @@
-cd C:\Users\Acer\TomatoGuard
-
-# Create the fixed ml_model.py
-@'
-import os
+﻿import os
 import json
 import logging
 import numpy as np
@@ -29,9 +25,9 @@ try:
         revision="main"
     )
     model = load_model(model_path, compile=False)
-    logger.info("✅ Model loaded successfully from Hugging Face Hub")
+    logger.info("Model loaded successfully from Hugging Face Hub")
 except Exception as e:
-    logger.error(f"❌ Failed to load model from Hugging Face Hub: {e}")
+    logger.error(f"Failed to load model from Hugging Face Hub: {e}")
     model = None
 
 def _prepare_image(filepath):
@@ -264,9 +260,3 @@ def predict_disease(image_path):
     except Exception as exc:
         logger.error(f"Disease prediction failed: {exc}", exc_info=True)
         return "Prediction error", DISEASE_CURES["Prediction error"], 0.0
-'@ | Out-File -FilePath utils/ml_model.py -Encoding utf8
-
-# Commit and push
-git add utils/ml_model.py
-git commit -m "Fix ml_model.py: Remove duplicate code, load model only from Hugging Face Hub"
-git push space main --force
