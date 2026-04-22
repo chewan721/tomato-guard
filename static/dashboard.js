@@ -815,11 +815,7 @@ function showToast(message, type = 'info') {
             <button class="toast-close">&times;</button>
         </div>
     `;
-
     document.body.appendChild(toast);
-
-    // Toast style handled in style.css
-
 
     // Add close button functionality
     const closeBtn = toast.querySelector('.toast-close');

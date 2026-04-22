@@ -40,11 +40,11 @@ def dashboard():
                     "last_temperature": latest.temperature,
                     "last_humidity": latest.humidity,
                     "last_soil": latest.soil_moisture
-                })
-        
+                })      
         return render_template('dashboard.html', unpaired_devices=unpaired_devices)
-    
+   
     except Exception as e:
         logger.error(f"Dashboard error: {e}", exc_info=True)
         # Return dashboard even if unpaired devices query fails
         return render_template('dashboard.html', unpaired_devices=[])
+    

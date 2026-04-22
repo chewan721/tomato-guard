@@ -99,6 +99,118 @@ body {
     width: 100%;
 }
 
+
+    .chart-section {
+        margin: 2rem 0;
+    }
+
+    .sensor-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        border: 1px solid #e2e8f0;
+        position: relative;
+        overflow: hidden;
+        min-height: 420px;
+    }
+
+    .card:hover {
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+    }
+
+    .card h3 {
+        margin: 0 0 1rem 0;
+        font-size: 1.1rem;
+        color: #2d3748;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .card-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: opacity 0.2s ease;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 220px;
+        margin-bottom: 1rem;
+        transition: opacity 0.2s ease;
+    }
+
+    .card-details-overlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 12px;
+        padding: 1rem;
+        overflow-y: auto;
+        z-index: 20;
+    }
+
+    .card:hover .card-details-overlay {
+        display: block;
+    }
+
+    .card:hover .card-title,
+    .card:hover .chart-container,
+    .card:hover p {
+        opacity: 0;
+    }
+
+    .card.no-hover-hide:hover .card-title,
+    .card.no-hover-hide:hover .chart-container,
+    .card.no-hover-hide:hover p,
+    .card.no-hover-hide:hover h3 {
+        opacity: 1;
+    }
+
+    .detail-advice {
+        font-size: 0.9rem;
+        line-height: 1.5;
+        color: #2d3748;
+    }
+
+    .action-section {
+        margin: 1rem 0;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .action-btn {
+        background: var(--green-700);
+        color: white;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .action-btn:hover {
+        background: var(--green-800);
+        transform: translateY(-2px);
+    }
+
 /* Flash Messages */
 .flash-toast-container {
     position: fixed;

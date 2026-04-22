@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
-
 <!-- Confirmation Modal -->
 <div id="deleteModal"
     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; align-items:center; justify-content:center;">
@@ -16,7 +15,7 @@
     </div>
 </div>
 
-<!-- External Dependencies for DataTables -->
+<!--  Dependencies for DataTables -->
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
 <style>
@@ -37,14 +36,12 @@
         flex-wrap: wrap;
         border-left: 4px solid var(--green-700);
     }
-    
     .dt-filter-form .form-group { 
         margin-bottom: 0;
         display: flex;
         flex-direction: column;
     }
-    
-    .dt-filter-form label {
+     .dt-filter-form label {
         font-size: 0.85rem;
         font-weight: 700;
         margin-bottom: 6px;
@@ -268,19 +265,6 @@
 <h2 class="section-title">📊 Disease Detection History</h2>
 
 <form method="GET" action="{{ url_for('disease.disease_history') }}" class="dt-filter-form">
-    <div class="form-group">
-        <label>📅 From Date</label>
-        <input type="date" name="start_date" value="{{ start_date or '' }}" style="padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
-    </div>
-    <div class="form-group">
-        <label>📅 To Date</label>
-        <input type="date" name="end_date" value="{{ end_date or '' }}" style="padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
-    </div>
-    <button type="submit">🔍 Filter Results</button>
-    {% if start_date or end_date %}
-    <a href="{{ url_for('disease.disease_history') }}" class="clear-link">✕ Clear Filters</a>
-    {% endif %}
-    
     <div class="quick-filters">
         {% set today = now.date() %}
         {% set seven_days_ago = (now - timedelta(days=7)).date() %}
